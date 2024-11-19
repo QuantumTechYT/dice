@@ -48,10 +48,10 @@
         }
         #result {
             margin-top: 20px;
-            padding: 20px;
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         .loading {
             text-align: center;
@@ -65,11 +65,11 @@
             margin-top: 20px;
             font-style: italic;
         }
-        #frame {
+        #proxyFrame {
             width: 100%;
             height: 800px;
             border: none;
-            display: none;
+            display: block;
         }
     </style>
 </head>
@@ -84,34 +84,56 @@
     </div>
     <div class="loading" id="loading">Looking up definition...</div>
     <div id="result"></div>
-    <iframe id="frame"></iframe>
     <div class="dictionary-info">
         <p>Powered by Advanced Dictionary API • Over 1 million words indexed</p>
     </div>
 
     <script>
-        const PROXY_URL = 'https://uv.holyubofficial.net/'; // Example proxy URL
-
-        document.getElementById('searchButton').addEventListener('click', () => {
+        document.getElementById('searchButton').addEventListener('click', async () => {
             const searchBox = document.getElementById('searchBox');
             const loading = document.getElementById('loading');
-            const frame = document.getElementById('frame');
+            const result = document.getElementById('result');
             
             loading.style.display = 'block';
+            result.innerHTML = '';
             
             let url = searchBox.value.trim();
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 url = 'https://' + url;
             }
 
-            // Encode the URL for the proxy
-            const encodedUrl = encodeURIComponent(url);
-            frame.src = `${PROXY_URL}service/${encodedUrl}`;
-            frame.style.display = 'block';
-            
-            loading.style.display = 'none';
+            try {
+                // Use a reliable proxy service
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                
+                // Create iframe for content
+                const frame = document.createElement('iframe');
+                frame.id = 'proxyFrame';
+                result.appendChild(frame);
+
+                // Fetch the content
+                const response = await fetch(proxyUrl);
+                const html = await response.text();
+
+                // Write content to iframe
+                const doc = frame.contentWindow.document;
+                doc.open();
+                doc.write(html);
+                doc.close();
+
+            } catch (error) {
+                result.innerHTML = `
+                    <div style="padding: 20px; color: red;">
+                        Error accessing the website. Try another URL or try again later.
+                    </div>
+                `;
+                console.error('Proxy error:', error);
+            } finally {
+                loading.style.display = 'none';
+            }
         });
 
+        // Handle Enter key
         document.getElementById('searchBox').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 document.getElementById('searchButton').click();
