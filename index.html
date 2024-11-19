@@ -71,6 +71,28 @@
             border: none;
             display: block;
         }
+        .word-entry {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .phonetic {
+            color: #666;
+            font-style: italic;
+            margin: 5px 0;
+        }
+        .part-of-speech {
+            color: #3498db;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .definition {
+            margin: 5px 0 5px 20px;
+        }
+        .example {
+            color: #666;
+            font-style: italic;
+            margin: 5px 0 5px 40px;
+        }
     </style>
 </head>
 <body>
@@ -79,16 +101,19 @@
         <p>Your comprehensive guide to word definitions</p>
     </div>
     <div class="search-container">
-        <input type="text" id="searchBox" placeholder="Enter a word to look up...">
+        <input type="text" id="searchBox" placeholder="Enter a word or URL...">
         <button id="searchButton">Search</button>
     </div>
     <div class="loading" id="loading">Looking up definition...</div>
     <div id="result"></div>
     <div class="dictionary-info">
-        <p>Powered by Advanced Dictionary API • Over 1 million words indexed</p>
+        <p>Powered by Free Dictionary API • Over 1 million words indexed</p>
     </div>
 
     <script>
+        const PROXY_URL = 'https://dictionary.aarush-ric.workers.dev';
+        const DICTIONARY_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+
         document.getElementById('searchButton').addEventListener('click', async () => {
             const searchBox = document.getElementById('searchBox');
             const loading = document.getElementById('loading');
@@ -97,51 +122,59 @@
             loading.style.display = 'block';
             result.innerHTML = '';
             
-            let url = searchBox.value.trim();
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                url = 'https://' + url;
-            }
+            let input = searchBox.value.trim();
 
-            try {
-                // Try multiple proxy services
-                const proxyServices = [
-                    `https://api.allorigins.win/raw?url=`,
-                    `https://corsproxy.io/?`,
-                    `https://api.codetabs.com/v1/proxy?quest=`
-                ];
+            // Check if input looks like a URL
+            if (input.includes('.') && !input.includes(' ')) {
+                // Handle as URL
+                if (!input.startsWith('http://') && !input.startsWith('https://')) {
+                    input = 'https://' + input;
+                }
+                window.location.href = `${PROXY_URL}?url=${encodeURIComponent(input)}`;
+            } else {
+                // Handle as dictionary word
+                try {
+                    const response = await fetch(DICTIONARY_API + encodeURIComponent(input));
+                    const data = await response.json();
 
-                let succeeded = false;
-                for (const proxyService of proxyServices) {
-                    try {
-                        const proxyUrl = proxyService + encodeURIComponent(url);
-                        const frame = document.createElement('iframe');
-                        frame.id = 'proxyFrame';
-                        frame.src = proxyUrl;
-                        frame.onload = () => {
-                            loading.style.display = 'none';
-                        };
-                        result.appendChild(frame);
-                        succeeded = true;
-                        break;
-                    } catch (e) {
-                        console.log('Proxy failed:', e);
-                        continue;
+                    if (response.ok) {
+                        let html = '';
+                        data.forEach(entry => {
+                            html += `
+                                <div class="word-entry">
+                                    <h2>${entry.word}</h2>
+                                    ${entry.phonetic ? `<div class="phonetic">${entry.phonetic}</div>` : ''}
+                                    
+                                    ${entry.meanings.map(meaning => `
+                                        <div class="meaning">
+                                            <div class="part-of-speech">${meaning.partOfSpeech}</div>
+                                            ${meaning.definitions.map(def => `
+                                                <div class="definition">• ${def.definition}</div>
+                                                ${def.example ? `<div class="example">"${def.example}"</div>` : ''}
+                                            `).join('')}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        });
+                        result.innerHTML = html;
+                    } else {
+                        result.innerHTML = `
+                            <div style="padding: 20px; color: #666;">
+                                No definition found. Try searching for a URL instead?
+                            </div>
+                        `;
                     }
+                } catch (error) {
+                    result.innerHTML = `
+                        <div style="padding: 20px; color: red;">
+                            Error looking up the word. Try again later.
+                        </div>
+                    `;
+                    console.error('Dictionary error:', error);
                 }
-
-                if (!succeeded) {
-                    throw new Error('All proxies failed');
-                }
-
-            } catch (error) {
-                result.innerHTML = `
-                    <div style="padding: 20px; color: red;">
-                        Error accessing the website. Try another URL or try again later.
-                    </div>
-                `;
-                console.error('Proxy error:', error);
-                loading.style.display = 'none';
             }
+            loading.style.display = 'none';
         });
 
         document.getElementById('searchBox').addEventListener('keypress', (e) => {
