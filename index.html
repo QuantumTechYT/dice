@@ -103,23 +103,35 @@
             }
 
             try {
-                // Use a reliable proxy service
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                
-                // Create iframe for content
-                const frame = document.createElement('iframe');
-                frame.id = 'proxyFrame';
-                result.appendChild(frame);
+                // Try multiple proxy services
+                const proxyServices = [
+                    `https://api.allorigins.win/raw?url=`,
+                    `https://corsproxy.io/?`,
+                    `https://api.codetabs.com/v1/proxy?quest=`
+                ];
 
-                // Fetch the content
-                const response = await fetch(proxyUrl);
-                const html = await response.text();
+                let succeeded = false;
+                for (const proxyService of proxyServices) {
+                    try {
+                        const proxyUrl = proxyService + encodeURIComponent(url);
+                        const frame = document.createElement('iframe');
+                        frame.id = 'proxyFrame';
+                        frame.src = proxyUrl;
+                        frame.onload = () => {
+                            loading.style.display = 'none';
+                        };
+                        result.appendChild(frame);
+                        succeeded = true;
+                        break;
+                    } catch (e) {
+                        console.log('Proxy failed:', e);
+                        continue;
+                    }
+                }
 
-                // Write content to iframe
-                const doc = frame.contentWindow.document;
-                doc.open();
-                doc.write(html);
-                doc.close();
+                if (!succeeded) {
+                    throw new Error('All proxies failed');
+                }
 
             } catch (error) {
                 result.innerHTML = `
@@ -128,12 +140,10 @@
                     </div>
                 `;
                 console.error('Proxy error:', error);
-            } finally {
                 loading.style.display = 'none';
             }
         });
 
-        // Handle Enter key
         document.getElementById('searchBox').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 document.getElementById('searchButton').click();
