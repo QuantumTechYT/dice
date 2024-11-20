@@ -149,13 +149,41 @@
                     frame.style.top = '0';
                     frame.style.left = '0';
                     
-                    // Set Ultraviolet-specific attributes
-                    frame.setAttribute('allow', 'fullscreen');
-                    frame.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads');
+                    // Update sandbox attributes to allow popups and same window navigation
+                    frame.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation allow-top-navigation-by-user-activation');
+                    frame.setAttribute('allow', 'fullscreen; camera; microphone; clipboard-read; clipboard-write; cross-origin-isolated');
                     
-                    // Set the source URL through Ultraviolet
-                    const encodedUrl = encodeURIComponent(input);
-                    const proxyUrl = `${WORKER_URL}/service/${encodedUrl}`;
+                    // Add event listener to intercept clicks
+                    frame.addEventListener('load', () => {
+                        try {
+                            const frameDoc = frame.contentWindow.document;
+                            if (frameDoc) {
+                                // Modify all links to stay within the iframe
+                                const links = frameDoc.getElementsByTagName('a');
+                                for (let link of links) {
+                                    link.target = '_self';  // Make links open in same frame
+                                    link.addEventListener('click', (e) => {
+                                        if (link.href.includes('discord.com')) {
+                                            e.preventDefault();
+                                            frame.src = `${WORKER_URL}?url=${encodeURIComponent(link.href)}`;
+                                        }
+                                    });
+                                }
+
+                                // Handle forms to stay within iframe
+                                const forms = frameDoc.getElementsByTagName('form');
+                                for (let form of forms) {
+                                    form.target = '_self';
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore cross-origin errors
+                            console.log('Frame loaded, cross-origin access restricted');
+                        }
+                    });
+                    
+                    // Set the source URL
+                    const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(input)}`;
                     frame.src = proxyUrl;
                     
                     container.appendChild(frame);
