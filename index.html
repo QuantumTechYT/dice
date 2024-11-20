@@ -124,58 +124,49 @@
             
             let input = searchBox.value.trim();
 
-            // Check if input looks like a URL
             if (input.includes('.') && !input.includes(' ')) {
                 // Handle as URL
                 if (!input.startsWith('http://') && !input.startsWith('https://')) {
                     input = 'https://' + input;
                 }
                 
-                // Create container for proxy content
-                const container = document.createElement('div');
-                container.style.width = '100%';
-                container.style.height = '800px';
-                container.style.overflow = 'hidden';
-                container.style.position = 'relative';
-                
-                const frame = document.createElement('iframe');
-                frame.id = 'proxyFrame';
-                frame.style.width = '100%';
-                frame.style.height = '100%';
-                frame.style.border = 'none';
-                frame.style.position = 'absolute';
-                frame.style.top = '0';
-                frame.style.left = '0';
-                
-                // Add error handling for iframe loading
-                frame.onerror = () => {
-                    handleFrameError();
-                };
-                
-                frame.onload = () => {
-                    // Check if the frame loaded successfully
-                    try {
-                        const frameContent = frame.contentWindow.document;
-                        if (!frameContent) {
-                            handleFrameError();
-                        }
-                    } catch (e) {
-                        // If we can't access the frame content, it probably means
-                        // the site blocked iframe loading
-                        handleFrameError();
-                    }
-                };
-                
-                frame.src = `${WORKER_URL}?url=${encodeURIComponent(input)}`;
-                container.appendChild(frame);
-                result.appendChild(container);
-
-                // Handle navigation within the iframe
-                window.addEventListener('message', function(event) {
-                    if (event.data.type === 'navigate') {
-                        frame.src = `${WORKER_URL}?url=${encodeURIComponent(event.data.url)}`;
-                    }
-                });
+                try {
+                    loading.style.display = 'block';
+                    
+                    // Create container and iframe
+                    const container = document.createElement('div');
+                    container.style.width = '100%';
+                    container.style.height = '800px';
+                    container.style.overflow = 'hidden';
+                    container.style.position = 'relative';
+                    
+                    const frame = document.createElement('iframe');
+                    frame.id = 'proxyFrame';
+                    frame.style.width = '100%';
+                    frame.style.height = '100%';
+                    frame.style.border = 'none';
+                    frame.style.position = 'absolute';
+                    frame.style.top = '0';
+                    frame.style.left = '0';
+                    
+                    // Set Ultraviolet-specific attributes
+                    frame.setAttribute('allow', 'fullscreen');
+                    frame.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads');
+                    
+                    // Set the source URL through Ultraviolet
+                    const encodedUrl = encodeURIComponent(input);
+                    const proxyUrl = `${WORKER_URL}/service/${encodedUrl}`;
+                    frame.src = proxyUrl;
+                    
+                    container.appendChild(frame);
+                    result.appendChild(container);
+                    
+                } catch (error) {
+                    console.error('Proxy error:', error);
+                    handleFrameError(error.message || 'Unknown error');
+                } finally {
+                    loading.style.display = 'none';
+                }
             } else {
                 // Handle as dictionary word
                 try {
@@ -227,8 +218,9 @@
             }
         });
 
-        // Add this function after the event listener
-        function handleFrameError() {
+        // Update the handleFrameError function
+        function handleFrameError(errorType = 'Unknown error') {
+            console.log('Frame error:', errorType); // For debugging
             const result = document.getElementById('result');
             result.innerHTML = `
                 <div style="padding: 20px; background-color: #fff3cd; color: #856404; border-radius: 8px; margin-top: 20px;">
@@ -239,7 +231,13 @@
                         <li>The website requires authentication or special permissions</li>
                         <li>The website's content security policy blocks proxy access</li>
                     </ul>
-                    <p>Try visiting the website directly or search for a different term.</p>
+                    <p>Technical details: ${errorType}</p>
+                    <p>You can try:</p>
+                    <ul>
+                        <li>Visiting <a href="${input}" target="_blank">the website directly</a></li>
+                        <li>Searching for a different website</li>
+                        <li>Using the dictionary search instead</li>
+                    </ul>
                 </div>
             `;
         }
