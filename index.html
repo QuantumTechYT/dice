@@ -147,6 +147,25 @@
                 frame.style.top = '0';
                 frame.style.left = '0';
                 
+                // Add error handling for iframe loading
+                frame.onerror = () => {
+                    handleFrameError();
+                };
+                
+                frame.onload = () => {
+                    // Check if the frame loaded successfully
+                    try {
+                        const frameContent = frame.contentWindow.document;
+                        if (!frameContent) {
+                            handleFrameError();
+                        }
+                    } catch (e) {
+                        // If we can't access the frame content, it probably means
+                        // the site blocked iframe loading
+                        handleFrameError();
+                    }
+                };
+                
                 frame.src = `${WORKER_URL}?url=${encodeURIComponent(input)}`;
                 container.appendChild(frame);
                 result.appendChild(container);
@@ -207,6 +226,23 @@
                 document.getElementById('searchButton').click();
             }
         });
+
+        // Add this function after the event listener
+        function handleFrameError() {
+            const result = document.getElementById('result');
+            result.innerHTML = `
+                <div style="padding: 20px; background-color: #fff3cd; color: #856404; border-radius: 8px; margin-top: 20px;">
+                    <h3>⚠️ Unable to Load Website</h3>
+                    <p>This website cannot be displayed in the proxy viewer. This usually happens because:</p>
+                    <ul>
+                        <li>The website has security measures that prevent it from being loaded in frames</li>
+                        <li>The website requires authentication or special permissions</li>
+                        <li>The website's content security policy blocks proxy access</li>
+                    </ul>
+                    <p>Try visiting the website directly or search for a different term.</p>
+                </div>
+            `;
+        }
     </script>
 </body>
 </html> 
