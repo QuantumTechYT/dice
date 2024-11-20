@@ -86,6 +86,7 @@
             margin: 10px 0;
         }
         .definition {
+            
             margin: 5px 0 5px 20px;
         }
         .example {
@@ -101,7 +102,7 @@
         <p>Your comprehensive guide to word definitions</p>
     </div>
     <div class="search-container">
-        <input type="text" id="searchBox" placeholder="Enter a word or URL...">
+        <input type="text" id="searchBox" placeholder="Search...">
         <button id="searchButton">Search</button>
     </div>
     <div class="loading" id="loading">Looking up definition...</div>
@@ -111,8 +112,7 @@
     </div>
 
     <script>
-        const PROXY_URL = 'https://dictionary.aarush-ric.workers.dev';
-        const DICTIONARY_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+        const WORKER_URL = 'https://dictionary.aarush-ric.workers.dev';
 
         document.getElementById('searchButton').addEventListener('click', async () => {
             const searchBox = document.getElementById('searchBox');
@@ -130,21 +130,46 @@
                 if (!input.startsWith('http://') && !input.startsWith('https://')) {
                     input = 'https://' + input;
                 }
-                window.location.href = `${PROXY_URL}?url=${encodeURIComponent(input)}`;
+                
+                // Create container for proxy content
+                const container = document.createElement('div');
+                container.style.width = '100%';
+                container.style.height = '800px';
+                container.style.overflow = 'hidden';
+                container.style.position = 'relative';
+                
+                const frame = document.createElement('iframe');
+                frame.id = 'proxyFrame';
+                frame.style.width = '100%';
+                frame.style.height = '100%';
+                frame.style.border = 'none';
+                frame.style.position = 'absolute';
+                frame.style.top = '0';
+                frame.style.left = '0';
+                
+                frame.src = `${WORKER_URL}?url=${encodeURIComponent(input)}`;
+                container.appendChild(frame);
+                result.appendChild(container);
+
+                // Handle navigation within the iframe
+                window.addEventListener('message', function(event) {
+                    if (event.data.type === 'navigate') {
+                        frame.src = `${WORKER_URL}?url=${encodeURIComponent(event.data.url)}`;
+                    }
+                });
             } else {
                 // Handle as dictionary word
                 try {
-                    const response = await fetch(DICTIONARY_API + encodeURIComponent(input));
+                    const response = await fetch(`${WORKER_URL}?word=${encodeURIComponent(input)}`);
                     const data = await response.json();
 
-                    if (response.ok) {
+                    if (response.ok && Array.isArray(data)) {
                         let html = '';
                         data.forEach(entry => {
                             html += `
                                 <div class="word-entry">
                                     <h2>${entry.word}</h2>
                                     ${entry.phonetic ? `<div class="phonetic">${entry.phonetic}</div>` : ''}
-                                    
                                     ${entry.meanings.map(meaning => `
                                         <div class="meaning">
                                             <div class="part-of-speech">${meaning.partOfSpeech}</div>
