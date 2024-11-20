@@ -163,10 +163,9 @@
                                 for (let link of links) {
                                     link.target = '_self';  // Make links open in same frame
                                     link.addEventListener('click', (e) => {
-                                        if (link.href.includes('discord.com')) {
-                                            e.preventDefault();
-                                            frame.src = `${WORKER_URL}?url=${encodeURIComponent(link.href)}`;
-                                        }
+                                        // Prevent default for all links and handle them manually
+                                        e.preventDefault();
+                                        frame.src = `${WORKER_URL}?url=${encodeURIComponent(link.href)}`;
                                     });
                                 }
 
@@ -174,7 +173,32 @@
                                 const forms = frameDoc.getElementsByTagName('form');
                                 for (let form of forms) {
                                     form.target = '_self';
+                                    form.addEventListener('submit', (e) => {
+                                        e.preventDefault();
+                                        const formAction = form.action || window.location.href;
+                                        frame.src = `${WORKER_URL}?url=${encodeURIComponent(formAction)}`;
+                                    });
                                 }
+
+                                // Handle buttons that might open Discord
+                                const buttons = frameDoc.getElementsByTagName('button');
+                                for (let button of buttons) {
+                                    button.addEventListener('click', (e) => {
+                                        // Check if it's the "Open Discord in browser" button
+                                        if (button.textContent.toLowerCase().includes('browser')) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            // Force Discord to open in the same frame
+                                            frame.src = `${WORKER_URL}?url=${encodeURIComponent('https://discord.com/login')}`;
+                                        }
+                                    });
+                                }
+
+                                // Intercept window.open calls
+                                frameDoc.defaultView.open = function(url) {
+                                    frame.src = `${WORKER_URL}?url=${encodeURIComponent(url)}`;
+                                    return null;
+                                };
                             }
                         } catch (e) {
                             // Ignore cross-origin errors
